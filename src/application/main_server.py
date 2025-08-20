@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import RedirectResponse
 from uvicorn import Config, Server
+from fastapi.middleware.cors import CORSMiddleware
 
 from ..custom import (
     __VERSION__,
@@ -89,6 +90,14 @@ class APIServer(TikTok):
             debug=VERSION_BETA,
             title="DouK-Downloader",
             version=__VERSION__,
+        )
+         # 添加CORS中间件，允许所有跨域请求
+        self.server.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # 允许所有来源
+            allow_credentials=True,
+            allow_methods=["*"],  # 允许所有HTTP方法
+            allow_headers=["*"],  # 允许所有请求头
         )
         self.setup_routes()
         config = Config(
