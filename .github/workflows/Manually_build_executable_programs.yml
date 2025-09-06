@@ -9,7 +9,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ macos-latest, windows-latest, macos-13 ]
+        os: [macos-latest, windows-latest, ubuntu-latest]  # 添加 ubuntu-latest
+        include:
+          - os: macos-latest
+            icon: --icon=./static/images/DouK-Downloader.icns
+          - os: windows-latest
+            icon: --icon=./static/images/DouK-Downloader.ico
+          - os: ubuntu-latest
+            icon: ""
 
     steps:
       - name: 签出存储库
@@ -26,21 +33,22 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: 构建 Win 可执行文件
+      - name: 构建可执行文件 (Windows)
         if: runner.os == 'Windows'
         run: |
           echo "DATE=$(Get-Date -Format 'yyyyMMdd')" >> $env:GITHUB_ENV
-          pyinstaller --icon=./static/images/DouK-Downloader.ico --add-data "static:static" --add-data "locale:locale" --collect-all emoji main.py
+          pyinstaller ${{ matrix.icon }} --add-data "static:static" --add-data "locale:locale" --collect-all emoji --name "DouK-Downloader" --clean --noconfirm main.py
         shell: pwsh
 
-      - name: 构建 Mac 可执行文件
-        if: runner.os == 'macOS'
+      - name: 构建可执行文件 (macOS/Linux)
+        if: runner.os != 'Windows'
         run: |
           echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-          pyinstaller --icon=./static/images/DouK-Downloader.icns --add-data "static:static" --add-data "locale:locale" --collect-all emoji main.py
+          pyinstaller ${{ matrix.icon }} --add-data "static:static" --add-data "locale:locale" --collect-all emoji --name "DouK-Downloader" --clean --noconfirm main.py
 
       - name: 上传文件
         uses: actions/upload-artifact@v4
         with:
           name: DouK-Downloader_${{ runner.os }}_${{ runner.arch }}_${{ env.DATE }}
-          path: dist/main/
+          path: dist/
+          if-no-files-found: error
