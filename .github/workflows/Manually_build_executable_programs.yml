@@ -1,7 +1,10 @@
 name: 构建可执行文件
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # 手动触发
+  push:
+    tags:
+      - "v*" # 打 tag 时自动构建
 
 jobs:
   build:
@@ -9,17 +12,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]  # 添加 ubuntu-latest
+        os: [macos-latest, windows-latest, ubuntu-latest]
         include:
           - os: macos-latest
             icon: --icon=./static/images/DouK-Downloader.icns
           - os: windows-latest
             icon: --icon=./static/images/DouK-Downloader.ico
           - os: ubuntu-latest
-            icon: ""
+            icon: "" # Linux 不设置图标
 
     steps:
-      - name: 签出存储库
+      - name: 签出代码
         uses: actions/checkout@v4
 
       - name: 设置 Python
@@ -27,28 +30,68 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: 安装依赖项
+      - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
 
+      # Windows 构建
       - name: 构建可执行文件 (Windows)
         if: runner.os == 'Windows'
         run: |
           echo "DATE=$(Get-Date -Format 'yyyyMMdd')" >> $env:GITHUB_ENV
-          pyinstaller ${{ matrix.icon }} --add-data "static:static" --add-data "locale:locale" --collect-all emoji --name "DouK-Downloader" --clean --noconfirm main.py
+          pyinstaller --onefile --noconsole --clean ${{ matrix.icon }} `
+            --add-data "static;static" `
+            --add-data "locale;locale" `
+            --collect-all emoji `
+            --name "DouK-Downloader" `
+            main.py
         shell: pwsh
 
+      # macOS & Linux 构建
       - name: 构建可执行文件 (macOS/Linux)
         if: runner.os != 'Windows'
         run: |
           echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-          pyinstaller ${{ matrix.icon }} --add-data "static:static" --add-data "locale:locale" --collect-all emoji --name "DouK-Downloader" --clean --noconfirm main.py
+          pyinstaller --onefile --noconsole --clean ${{ matrix.icon }} \
+            --add-data "static:static" \
+            --add-data "locale:locale" \
+            --collect-all emoji \
+            --name "DouK-Downloader" \
+            main.py
 
-      - name: 上传文件
+      # Linux 特殊处理：增加执行权限
+      - name: 设置 Linux 可执行文件权限
+        if: runner.os == 'Linux'
+        run: chmod +x dist/DouK-Downloader
+
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: DouK-Downloader_${{ runner.os }}_${{ runner.arch }}_${{ env.DATE }}
           path: dist/
           if-no-files-found: error
+
+  # 可选：Linux 兼容性更好（Docker 构建）
+  build-linux-compatible:
+    name: 构建 Linux 兼容版
+    runs-on: ubuntu-latest
+    steps:
+      - name: 签出代码
+        uses: actions/checkout@v4
+
+      - name: 使用 Docker 构建
+        run: |
+          docker run --rm -v $PWD:/src cdrx/pyinstaller-linux:python3 \
+            "pyinstaller --onefile --noconsole --clean \
+            --add-data 'static:static' \
+            --add-data 'locale:locale' \
+            --collect-all emoji \
+            --name DouK-Downloader main.py"
+
+      - name: 上传兼容版 Linux 文件
+        uses: actions/upload-artifact@v4
+        with:
+          name: DouK-Downloader_linux_compatible_${{ github.run_id }}
+          path: dist/
