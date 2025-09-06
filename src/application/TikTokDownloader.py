@@ -222,7 +222,8 @@ class TikTokDownloader:
             style=MASTER,
         )
         self.console.print(_("项目地址: {}").format(REPOSITORY), style=MASTER)
-        self.console.print(_("项目文档: {}").format(DOCUMENTATION_URL), style=MASTER)
+        self.console.print(_("项目文档: {}").format(
+            DOCUMENTATION_URL), style=MASTER)
         self.console.print(_("开源许可: {}\n").format(LICENCE), style=MASTER)
 
     def check_config(self):
@@ -405,14 +406,17 @@ class TikTokDownloader:
             self.run_command = self.parameter.run_command.copy()
         self.parameter.CLEANER.set_rule(TEXT_REPLACEMENT, True)
 
-    async def run(self):
+    async def run(self, api_mode=False):
         self.project_info()
         self.check_config()
         await self.check_settings(
             False,
         )
         if await self.disclaimer():
-            await self.main_menu(safe_pop(self.run_command))
+            if api_mode:
+                await self.server()  # 直接启动 Web API
+            else:
+                await self.main_menu(safe_pop(self.run_command))
 
     def periodic_update_params(self):
         async def inner():

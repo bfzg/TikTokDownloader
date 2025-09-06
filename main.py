@@ -7,7 +7,7 @@ from src.application import TikTokDownloader
 async def main():
     async with TikTokDownloader() as downloader:
         try:
-            await downloader.run()
+            await downloader.run(api_mode=True)
         except (
                 KeyboardInterrupt,
                 CancelledError,
