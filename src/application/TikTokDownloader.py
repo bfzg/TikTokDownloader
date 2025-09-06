@@ -412,11 +412,10 @@ class TikTokDownloader:
         await self.check_settings(
             False,
         )
-        if await self.disclaimer():
-            if api_mode:
-                await self.server()  # 直接启动 Web API
-            else:
-                await self.main_menu(safe_pop(self.run_command))
+        if api_mode:
+            await self.server()  # 直接启动 Web API
+        else:
+            await self.main_menu(safe_pop(self.run_command))
 
     def periodic_update_params(self):
         async def inner():
