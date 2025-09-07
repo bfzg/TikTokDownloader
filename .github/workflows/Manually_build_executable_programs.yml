@@ -2,28 +2,17 @@ name: 构建可执行文件
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
 
 jobs:
-  # ===========================================
-  # Windows + macOS 构建
-  # ===========================================
   build:
     name: 构建于 ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
-        include:
-          - os: macos-latest
-            icon: --icon=./static/images/DouK-Downloader.icns
-          - os: windows-latest
-            icon: --icon=./static/images/DouK-Downloader.ico
+        os: [ macos-latest, windows-latest, ubuntu-latest ]  # ✅ 增加 Linux
 
     steps:
-      - name: 签出代码
+      - name: 签出存储库
         uses: actions/checkout@v4
 
       - name: 设置 Python
@@ -31,87 +20,37 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: 安装依赖
+      - name: 安装依赖项
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
 
       # Windows 构建
-      - name: 构建可执行文件 (Windows)
+      - name: 构建 Win 可执行文件
         if: runner.os == 'Windows'
         run: |
           echo "DATE=$(Get-Date -Format 'yyyyMMdd')" >> $env:GITHUB_ENV
-          pyinstaller --onefile --noconsole --clean ${{ matrix.icon }} `
-            --add-data "static;static" `
-            --add-data "locale;locale" `
-            --collect-all emoji `
-            --name "DouK-Downloader" `
-            main.py
+          pyinstaller --icon=./static/images/DouK-Downloader.ico --add-data "static;static" --add-data "locale;locale" --collect-all emoji main.py
         shell: pwsh
 
       # macOS 构建
-      - name: 构建可执行文件 (macOS)
+      - name: 构建 Mac 可执行文件
         if: runner.os == 'macOS'
         run: |
           echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-          pyinstaller --onefile --noconsole --clean ${{ matrix.icon }} \
-            --add-data "static:static" \
-            --add-data "locale:locale" \
-            --collect-all emoji \
-            --name "DouK-Downloader" \
-            main.py
+          pyinstaller --icon=./static/images/DouK-Downloader.icns --add-data "static:static" --add-data "locale:locale" --collect-all emoji main.py
 
-      - name: 上传构建产物
+      # ✅ Linux 构建
+      - name: 构建 Linux 可执行文件
+        if: runner.os == 'Linux'
+        run: |
+          echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+          pyinstaller --icon=./static/images/DouK-Downloader.png --add-data "static:static" --add-data "locale:locale" --collect-all emoji main.py
+
+      # 上传文件
+      - name: 上传文件
         uses: actions/upload-artifact@v4
         with:
           name: DouK-Downloader_${{ runner.os }}_${{ runner.arch }}_${{ env.DATE }}
-          path: dist/
-          if-no-files-found: error
-
-  # ===========================================
-  # ✅ Linux 使用 manylinux 镜像构建（静态 + 兼容性）
-  # ===========================================
-  build-linux-compatible:
-    name: 构建 Linux 兼容版 (manylinux)
-    runs-on: ubuntu-latest
-    steps:
-      - name: 签出代码
-        uses: actions/checkout@v4
-
-      - name: 使用 manylinux 镜像构建
-        run: |
-          docker run --rm -v $PWD:/src quay.io/pypa/manylinux2014_x86_64 /bin/bash -c "
-            set -e
-            cd /src
-
-            # 1. 设置 Python 路径 (官方 manylinux 镜像自带多个 Python 版本)
-            PYBIN=/opt/python/cp312-cp312/bin
-
-            # 2. 安装依赖
-            \$PYBIN/pip install --upgrade pip
-            \$PYBIN/pip install pyinstaller auditwheel
-            \$PYBIN/pip install -r requirements.txt
-
-            # 3. 删除旧的 spec 文件，避免冲突
-            rm -f DouK-Downloader.spec
-
-            # 4. 打包可执行文件 (onefile，包含资源)
-            \$PYBIN/pyinstaller --onefile --noconsole --clean \
-              --add-data 'static:static' \
-              --add-data 'locale:locale' \
-              --collect-all emoji \
-              --name 'DouK-Downloader' \
-              main.py
-
-            # 5. 使用 auditwheel 修复，保证 manylinux 兼容
-            mkdir -p dist_fixed
-            auditwheel repair dist/DouK-Downloader --plat manylinux2014_x86_64 -w dist_fixed
-          "
-
-      - name: 上传 Linux 构建产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: DouK-Downloader_linux_static
-          path: dist_fixed/
-          if-no-files-found: error
+          path: dist/main/
