@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # 手动触发
   push:
     tags:
-      - "v*" # 打 tag 时自动构建并发布
+      - "v*" # 打 tag 时自动构建
 
 jobs:
   # ===========================================
@@ -101,34 +101,3 @@ jobs:
           name: DouK-Downloader_linux_${{ github.run_id }}
           path: dist/
           if-no-files-found: error
-
-  # ===========================================
-  # ✅ 自动创建 Release 并上传产物
-  # ===========================================
-  release:
-    name: 发布 Release
-    needs: [build, build-linux-compatible] # 等待所有平台构建完成
-    runs-on: ubuntu-latest
-    steps:
-      - name: 下载所有构建产物
-        uses: actions/download-artifact@v4
-        with:
-          path: ./release-assets
-
-      - name: 压缩产物
-        run: |
-          cd release-assets
-          for dir in *; do
-            zip -r "${dir}.zip" "$dir"
-          done
-
-      - name: 创建 GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "DouK Downloader ${{ github.ref_name }}"
-          draft: false
-          prerelease: false
-          files: release-assets/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
