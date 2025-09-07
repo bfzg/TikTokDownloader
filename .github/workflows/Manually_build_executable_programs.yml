@@ -7,6 +7,9 @@ on:
       - "v*" # 打 tag 时自动构建
 
 jobs:
+  # ===========================================
+  # macOS & Windows 构建
+  # ===========================================
   build:
     name: 构建于 ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -66,7 +69,9 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  # ===========================================
   # ✅ Linux 使用 manylinux 镜像构建（兼容性最强）
+  # ===========================================
   build-linux-compatible:
     name: 构建 Linux 兼容版 (manylinux)
     runs-on: ubuntu-latest
@@ -76,12 +81,12 @@ jobs:
 
       - name: 使用 manylinux 构建
         run: |
-          docker run --rm -v $PWD:/src python:3.12-slim /bin/bash -c "
-            apt-get update && apt-get install -y build-essential
-            pip install --upgrade pip
-            pip install pyinstaller -r /src/requirements.txt
+          docker run --rm -v $PWD:/src quay.io/pypa/manylinux2014_x86_64 /bin/bash -c "
+            yum install -y gcc gcc-c++ make
+            /opt/python/cp312-cp312/bin/pip install --upgrade pip
+            /opt/python/cp312-cp312/bin/pip install pyinstaller -r /src/requirements.txt
             cd /src
-            pyinstaller --onefile --noconsole --clean \
+            /opt/python/cp312-cp312/bin/pyinstaller --onefile --noconsole --clean \
               --add-data 'static:static' \
               --add-data 'locale:locale' \
               --collect-all emoji \
@@ -94,3 +99,4 @@ jobs:
         with:
           name: DouK-Downloader_linux_${{ github.run_id }}
           path: dist/
+          if-no-files-found: error
