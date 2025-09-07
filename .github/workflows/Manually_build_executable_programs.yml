@@ -1,14 +1,14 @@
 name: 构建可执行文件
 
 on:
-  workflow_dispatch: # 手动触发
+  workflow_dispatch:
   push:
     tags:
-      - "v*" # 打 tag 时自动构建
+      - "v*"
 
 jobs:
   # ===========================================
-  # macOS & Windows 构建
+  # Windows + macOS 构建
   # ===========================================
   build:
     name: 构建于 ${{ matrix.os }}
@@ -70,7 +70,7 @@ jobs:
           if-no-files-found: error
 
   # ===========================================
-  # ✅ Linux 使用 manylinux 镜像构建（兼容性最强）
+  # ✅ Linux 使用 manylinux 镜像构建（静态 + 兼容性）
   # ===========================================
   build-linux-compatible:
     name: 构建 Linux 兼容版 (manylinux)
@@ -82,22 +82,34 @@ jobs:
       - name: 使用 manylinux 构建
         run: |
           docker run --rm -v $PWD:/src quay.io/pypa/manylinux2014_x86_64 /bin/bash -c "
-            yum install -y gcc gcc-c++ make
-            /opt/python/cp312-cp312/bin/pip install --upgrade pip
-            /opt/python/cp312-cp312/bin/pip install pyinstaller -r /src/requirements.txt
+            set -e
             cd /src
-            /opt/python/cp312-cp312/bin/pyinstaller --onefile --noconsole --clean \
-              --python-option no-embed \
+
+            # 设置 Python 路径
+            PYBIN=/opt/python/cp312-cp312/bin
+            \$PYBIN/pip install --upgrade pip
+            \$PYBIN/pip install pyinstaller auditwheel -r requirements.txt
+
+            # 删除旧的 .spec 文件，避免影响参数
+            rm -f DouK-Downloader.spec
+
+            # 使用 PyInstaller 打包 (onefile，静态嵌入 Python)
+            \$PYBIN/pyinstaller --onefile --noconsole --clean \
               --add-data 'static:static' \
               --add-data 'locale:locale' \
               --collect-all emoji \
               --name 'DouK-Downloader' \
               main.py
+
+            # 使用 auditwheel 修复可执行文件，使其符合 manylinux2014 标准
+            mkdir -p dist_fixed
+            auditwheel repair dist/DouK-Downloader --plat manylinux2014_x86_64 -w dist_fixed
           "
 
-      - name: 上传兼容版 Linux 文件
+      - name: 上传 Linux 构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: DouK-Downloader_linux_${{ github.run_id }}
-          path: dist/
+          name: DouK-Downloader_linux_static
+          path: dist_fixed/
           if-no-files-found: error
+
