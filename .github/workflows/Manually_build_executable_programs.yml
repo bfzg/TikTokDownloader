@@ -12,14 +12,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, windows-latest]
         include:
           - os: macos-latest
             icon: --icon=./static/images/DouK-Downloader.icns
           - os: windows-latest
             icon: --icon=./static/images/DouK-Downloader.ico
-          - os: ubuntu-latest
-            icon: "" # Linux 不设置图标
 
     steps:
       - name: 签出代码
@@ -49,9 +47,9 @@ jobs:
             main.py
         shell: pwsh
 
-      # macOS & Linux 构建
-      - name: 构建可执行文件 (macOS/Linux)
-        if: runner.os != 'Windows'
+      # macOS 构建
+      - name: 构建可执行文件 (macOS)
+        if: runner.os == 'macOS'
         run: |
           echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
           pyinstaller --onefile --noconsole --clean ${{ matrix.icon }} \
@@ -61,11 +59,6 @@ jobs:
             --name "DouK-Downloader" \
             main.py
 
-      # Linux 特殊处理：增加执行权限
-      - name: 设置 Linux 可执行文件权限
-        if: runner.os == 'Linux'
-        run: chmod +x dist/DouK-Downloader
-
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
@@ -73,22 +66,28 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-  # 可选：Linux 兼容性更好（Docker 构建）
+  # ✅ Linux 使用 manylinux 镜像构建（兼容性最强）
   build-linux-compatible:
-    name: 构建 Linux 兼容版
+    name: 构建 Linux 兼容版 (manylinux)
     runs-on: ubuntu-latest
     steps:
       - name: 签出代码
         uses: actions/checkout@v4
 
-      - name: 使用 Docker 构建
+      - name: 使用 manylinux 构建
         run: |
-          docker run --rm -v $PWD:/src cdrx/pyinstaller-linux:python3 \
-            "pyinstaller --onefile --noconsole --clean \
-            --add-data 'static:static' \
-            --add-data 'locale:locale' \
-            --collect-all emoji \
-            --name DouK-Downloader main.py"
+          docker run --rm -v $PWD:/src quay.io/pypa/manylinux2014_x86_64 /bin/bash -c "
+            yum install -y python3 python3-pip
+            python3 -m pip install --upgrade pip
+            pip3 install pyinstaller -r /src/requirements.txt
+            cd /src
+            pyinstaller --onefile --noconsole --clean \
+              --add-data 'static:static' \
+              --add-data 'locale:locale' \
+              --collect-all emoji \
+              --name 'DouK-Downloader' \
+              main.py
+          "
 
       - name: 上传兼容版 Linux 文件
         uses: actions/upload-artifact@v4
