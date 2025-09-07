@@ -9,7 +9,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ macos-latest, windows-latest, ubuntu-latest ]  # ✅ 增加 Linux
+        os: [ macos-latest, windows-latest, ubuntu-20.04 ]  # ✅ 增加 Linux
 
     steps:
       - name: 签出存储库
